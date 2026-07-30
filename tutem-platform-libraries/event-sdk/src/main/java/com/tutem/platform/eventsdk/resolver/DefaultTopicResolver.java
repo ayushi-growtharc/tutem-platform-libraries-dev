@@ -1,21 +1,24 @@
 package com.tutem.platform.eventsdk.resolver;
 
+import com.tutem.platform.eventsdk.config.EventTopicProperties;
 import com.tutem.platform.eventsdk.model.DomainEvent;
 
 import java.util.HashMap;
 import java.util.Map;
 
 public class DefaultTopicResolver implements TopicResolver {
-    private final Map<String, String> topics = new HashMap<>();
+    private  final EventTopicProperties topicProperties;
 
-    public DefaultTopicResolver() {
-        //ToDo: Replace hard code with YAML configuration
-        topics.put("RideRequested", "ride.requested");
-        topics.put("DriverAssigned", "driver.assigned");
+    public DefaultTopicResolver(EventTopicProperties topicProperties) {
+        this.topicProperties = topicProperties;
     }
 
     @Override
     public String resolve(DomainEvent event) {
-        return topics.get(event.eventType());
+        String topic = topicProperties.getTopics().get(event.eventType());
+        if(topic == null){
+            throw new RuntimeException("Topic not configured for "  + event.eventType());
+        }
+        return topic;
     }
 }
