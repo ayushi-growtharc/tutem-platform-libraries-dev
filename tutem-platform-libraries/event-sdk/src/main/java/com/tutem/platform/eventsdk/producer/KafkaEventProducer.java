@@ -1,5 +1,6 @@
 package com.tutem.platform.eventsdk.producer;
 
+import com.tutem.platform.eventsdk.exception.EventPublishException;
 import org.springframework.kafka.core.KafkaTemplate;
 
 public class KafkaEventProducer {
@@ -10,6 +11,10 @@ public class KafkaEventProducer {
     }
 
     public void publish(String topic, String key, String payload) {
-        kafkaTemplate.send(topic, key, payload);
+        try {
+            kafkaTemplate.send(topic, key, payload);
+        }  catch (Exception ex) {
+            throw new EventPublishException("Kafka publish failed", ex);
+        }
     }
 }
