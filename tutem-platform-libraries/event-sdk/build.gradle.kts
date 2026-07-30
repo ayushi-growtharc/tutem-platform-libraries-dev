@@ -11,8 +11,11 @@ repositories {
 }
 
 dependencies {
+    implementation("org.springframework.boot:spring-boot-autoconfigure:3.5.4")
     implementation("com.fasterxml.jackson.core:jackson-databind:2.18.2")
     implementation("org.springframework.kafka:spring-kafka:3.3.7")
+    implementation("org.slf4j:slf4j-api:2.0.17")
+    implementation("org.junit.jupiter:junit-jupiter:5.10.2")
 
     //test
     testImplementation(platform("org.junit:junit-bom:6.0.0"))

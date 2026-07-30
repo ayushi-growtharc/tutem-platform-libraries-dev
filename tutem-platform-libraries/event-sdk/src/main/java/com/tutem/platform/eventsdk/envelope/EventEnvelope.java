@@ -2,7 +2,7 @@ package com.tutem.platform.eventsdk.envelope;
 
 import java.time.Instant;
 
-public class EventEnvelope {
+public class EventEnvelope<T> {
     private String eventId;
     private String eventType;
     private String version;
@@ -55,10 +55,6 @@ public class EventEnvelope {
         this.timestamp = timestamp;
     }
 
-    public T getPayload() {
-        return payload;
-    }
-    public void setPayload() {
-        this.payload = payload;
-    }
+    public T getPayload() { return payload; }
+    public void setPayload(T payload) { this.payload = payload; }
 }
