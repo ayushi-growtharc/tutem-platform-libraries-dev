@@ -1,4 +1,4 @@
-package  com.tutem.platform.libraries.event-sdk.model;
+package  com.tutem.platform.event-sdk.model;
 
 public interface DomainEvent {
     String eventType();
