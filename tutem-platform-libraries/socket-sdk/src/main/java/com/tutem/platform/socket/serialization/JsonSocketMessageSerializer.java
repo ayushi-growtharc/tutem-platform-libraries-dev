@@ -1,15 +1,19 @@
 package com.tutem.platform.socket.serialization;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tutem.platform.socket.exception.SocketException;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
 /**
  * Default JSON serializer using Jackson.
- * netty-socketio already deserializes incoming JSON — this handles
- * cases where manual conversion is needed (e.g. Map → typed object).
+ * netty-socketio hands us a loosely typed value (usually a LinkedHashMap) —
+ * this converts it to the handler's declared payload type.
+ *
+ * <p>Failures are NOT swallowed: a {@link SocketException} is thrown so the
+ * dispatch path can run the normal error pipeline (metrics, {@code @OnError}
+ * handlers, {@code SocketErrorHandler}) and the client learns the payload was
+ * rejected instead of a handler silently receiving {@code null}.
  */
-@Slf4j
 @RequiredArgsConstructor
 public class JsonSocketMessageSerializer implements SocketMessageSerializer {
 
@@ -17,14 +21,20 @@ public class JsonSocketMessageSerializer implements SocketMessageSerializer {
 
     @Override
     public <T> T deserialize(Object raw, Class<T> targetType) {
+        if (raw == null) {
+            return null;
+        }
+        if (targetType == null || targetType.isInstance(raw)) {
+            @SuppressWarnings("unchecked")
+            T cast = (T) raw;
+            return cast;
+        }
         try {
-            if (raw == null) return null;
-            if (targetType.isInstance(raw)) return targetType.cast(raw);
-            // Convert Map → typed object (common when netty-socketio deserializes to LinkedHashMap)
+            // Convert Map -> typed object (common when netty-socketio deserializes to LinkedHashMap)
             return objectMapper.convertValue(raw, targetType);
         } catch (Exception e) {
-            log.error("Deserialization failed for type {}: {}", targetType.getSimpleName(), e.getMessage());
-            return null;
+            throw new SocketException(
+                "Failed to deserialize socket payload into " + targetType.getName(), e);
         }
     }
 
@@ -33,8 +43,8 @@ public class JsonSocketMessageSerializer implements SocketMessageSerializer {
         try {
             return objectMapper.writeValueAsString(payload);
         } catch (Exception e) {
-            log.error("Serialization failed: {}", e.getMessage());
-            return "{}";
+            throw new SocketException("Failed to serialize socket payload of type "
+                + (payload != null ? payload.getClass().getName() : "null"), e);
         }
     }
 }

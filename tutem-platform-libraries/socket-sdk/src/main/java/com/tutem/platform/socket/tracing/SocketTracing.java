@@ -1,45 +1,23 @@
 package com.tutem.platform.socket.tracing;
 
-import io.micrometer.tracing.Span;
-import io.micrometer.tracing.Tracer;
-import lombok.extern.slf4j.Slf4j;
-
 /**
- * Wraps each @OnMessage handler invocation in an OpenTelemetry span.
- * Each socket event becomes a traceable unit in your observability dashboard.
+ * SDK-owned tracing abstraction for the socket layer.
  *
- * When tracing is disabled or Tracer is not on the classpath, the handler
- * is called directly with no overhead.
+ * <p>Deliberately free of any Micrometer/OpenTelemetry type: micrometer-tracing is a
+ * {@code compileOnly} dependency of this SDK, so no type the runtime always loads may
+ * mention it. Consumers with a {@code Tracer} bean get {@link MicrometerSocketTracing};
+ * everybody else gets {@link NoOpSocketTracing}.
  */
-@Slf4j
-public class SocketTracing {
-
-    private final Tracer tracer;
-    private final boolean enabled;
-
-    public SocketTracing(Tracer tracer, boolean enabled) {
-        this.tracer = tracer;
-        this.enabled = enabled && tracer != null;
-    }
+public interface SocketTracing {
 
     /**
-     * Run the given action inside a named trace span.
-     * span name format: "socket.{eventName}" (e.g. "socket.joinTrackingRoom")
+     * Run {@code work} inside a span named {@code name}.
+     *
+     * <p>Implementations must propagate any exception thrown by {@code work} to the caller
+     * unchanged (after recording it on the span) and must always close the span.
+     *
+     * @param name span name, e.g. {@code "socket.joinTrackingRoom"}
+     * @param work the work to instrument; never {@code null}
      */
-    public void startSpan(String spanName, Runnable action) {
-        if (!enabled) {
-            action.run();
-            return;
-        }
-
-        Span span = tracer.nextSpan().name(spanName).start();
-        try (Tracer.SpanInScope scope = tracer.withSpan(span)) {
-            action.run();
-        } catch (Exception e) {
-            span.error(e);
-            throw e;
-        } finally {
-            span.end();
-        }
-    }
+    void startSpan(String name, Runnable work);
 }
