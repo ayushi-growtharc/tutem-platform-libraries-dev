@@ -3,7 +3,6 @@ package com.tutem.platform.socket.connection;
 import com.corundumstudio.socketio.SocketIOClient;
 import com.corundumstudio.socketio.SocketIOServer;
 import com.tutem.platform.socket.session.SessionManager;
-import com.tutem.platform.socket.session.SocketSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -53,17 +52,30 @@ public class ConnectionManager {
         });
     }
 
+    /** Disconnect ALL of this user's live sessions (a user may be on several devices). */
     public void disconnect(String userId) {
-        sessionManager.findByUserId(userId).ifPresent(session ->
+        sessionManager.findAllByUserId(userId).forEach(session ->
             getClient(session.getSessionId()).ifPresent(SocketIOClient::disconnect)
         );
     }
 
+    /**
+     * Resolves the live Netty client for a session id, or empty when the id is null, is not a
+     * Socket.IO client id, or names no live client. Mirrors
+     * {@code MessageDispatcher.sendToSession}: a bad session id is a no-op with a log line,
+     * never an exception thrown at the caller — a session store can legitimately hand back an
+     * id this server does not own, or (with a custom {@code SessionManager}) a null one.
+     */
     private Optional<SocketIOClient> getClient(String sessionId) {
+        if (sessionId == null) {
+            log.debug("getClient: null sessionId — skipping");
+            return Optional.empty();
+        }
         try {
             SocketIOClient client = server.getClient(UUID.fromString(sessionId));
             return Optional.ofNullable(client);
         } catch (IllegalArgumentException e) {
+            log.warn("getClient: invalid sessionId={}", sessionId);
             return Optional.empty();
         }
     }

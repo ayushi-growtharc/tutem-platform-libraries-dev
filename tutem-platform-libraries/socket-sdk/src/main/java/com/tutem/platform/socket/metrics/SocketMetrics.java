@@ -1,90 +1,50 @@
 package com.tutem.platform.socket.metrics;
 
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.Gauge;
-import io.micrometer.core.instrument.MeterRegistry;
-import com.tutem.platform.socket.session.SessionManager;
-import lombok.extern.slf4j.Slf4j;
-
 /**
- * Exposes socket connection and message metrics via Micrometer.
- * Automatically available in Prometheus/Grafana when actuator is on the classpath.
+ * SDK-owned metrics abstraction for the socket layer.
  *
- * Metrics published:
- *   socket.connections.active      — gauge, current connected clients
- *   socket.connections.total       — counter, total connects since startup
- *   socket.disconnections.total    — counter
- *   socket.messages.received       — counter, tagged by event name
- *   socket.errors.total            — counter, tagged by event name
- *   socket.auth.failures           — counter
+ * <p>Deliberately free of any Micrometer type: actuator and micrometer-tracing are
+ * {@code compileOnly} dependencies of this SDK, so no type that the runtime always
+ * loads may mention them in a field, parameter, or return type. Consumers that put
+ * actuator on their classpath get {@link MicrometerSocketMetrics}; everybody else
+ * gets {@link NoOpSocketMetrics}.
+ *
+ * <p>Metrics published by the Micrometer implementation:
+ * <ul>
+ *   <li>{@code socket.connections.active} - gauge, currently connected clients</li>
+ *   <li>{@code socket.connections.total} - counter, total connects since startup</li>
+ *   <li>{@code socket.disconnections.total} - counter</li>
+ *   <li>{@code socket.messages.received} - counter, tagged by event name</li>
+ *   <li>{@code socket.errors.total} - counter, tagged by event name</li>
+ *   <li>{@code socket.auth.failures} - counter</li>
+ * </ul>
+ *
+ * <p>Implementations must be thread-safe: these methods are called from Netty
+ * worker threads.
  */
-@Slf4j
-public class SocketMetrics {
+public interface SocketMetrics {
 
-    private final Counter connectCounter;
-    private final Counter disconnectCounter;
-    private final Counter authFailureCounter;
-    private final MeterRegistry meterRegistry;
-    private final boolean enabled;
+    /** Record one successful client connection. */
+    void incrementConnect();
 
-    public SocketMetrics(MeterRegistry meterRegistry, SessionManager sessionManager, boolean enabled) {
-        this.meterRegistry = meterRegistry;
-        this.enabled = enabled;
+    /** Record one client disconnection. */
+    void incrementDisconnect();
 
-        if (enabled) {
-            this.connectCounter = Counter.builder("socket.connections.total")
-                .description("Total socket connections since startup")
-                .register(meterRegistry);
+    /** Record one rejected authentication attempt. */
+    void incrementAuthFailure();
 
-            this.disconnectCounter = Counter.builder("socket.disconnections.total")
-                .description("Total socket disconnections since startup")
-                .register(meterRegistry);
+    /**
+     * Record one inbound message.
+     *
+     * @param event the socket event name (client-supplied, so cardinality must be bounded
+     *              by the implementation)
+     */
+    void incrementMessageReceived(String event);
 
-            this.authFailureCounter = Counter.builder("socket.auth.failures")
-                .description("Total authentication failures")
-                .register(meterRegistry);
-
-            Gauge.builder("socket.connections.active", sessionManager, SessionManager::getConnectedCount)
-                .description("Currently connected socket clients")
-                .register(meterRegistry);
-
-            log.info("Socket metrics enabled");
-        } else {
-            this.connectCounter = null;
-            this.disconnectCounter = null;
-            this.authFailureCounter = null;
-        }
-    }
-
-    public void incrementConnect() {
-        if (enabled) connectCounter.increment();
-    }
-
-    public void incrementDisconnect() {
-        if (enabled) disconnectCounter.increment();
-    }
-
-    public void incrementAuthFailure() {
-        if (enabled) authFailureCounter.increment();
-    }
-
-    public void incrementMessageReceived(String event) {
-        if (enabled) {
-            Counter.builder("socket.messages.received")
-                .tag("event", event)
-                .description("Total messages received per event")
-                .register(meterRegistry)
-                .increment();
-        }
-    }
-
-    public void incrementError(String event) {
-        if (enabled) {
-            Counter.builder("socket.errors.total")
-                .tag("event", event)
-                .description("Total errors per event")
-                .register(meterRegistry)
-                .increment();
-        }
-    }
+    /**
+     * Record one handler error.
+     *
+     * @param event the socket event name that failed
+     */
+    void incrementError(String event);
 }

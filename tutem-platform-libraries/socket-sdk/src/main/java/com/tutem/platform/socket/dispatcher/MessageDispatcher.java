@@ -3,10 +3,11 @@ package com.tutem.platform.socket.dispatcher;
 import com.corundumstudio.socketio.SocketIOClient;
 import com.corundumstudio.socketio.SocketIOServer;
 import com.tutem.platform.socket.session.SessionManager;
+import com.tutem.platform.socket.session.SocketSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.Optional;
+import java.util.Collection;
 import java.util.UUID;
 
 /**
@@ -24,16 +25,28 @@ public class MessageDispatcher {
     private final SocketIOServer server;
     private final SessionManager sessionManager;
 
-    /** Push event to a specific user by userId. No-op if user is offline. */
+    /**
+     * Push event to every live session of a user (a user may be connected from
+     * several devices at once). Logs at debug and does nothing if the user has
+     * no live session.
+     */
     public void sendToUser(String userId, String event, Object payload) {
-        sessionManager.findByUserId(userId).ifPresentOrElse(
-            session -> sendToSession(session.getSessionId(), event, payload),
-            () -> log.debug("sendToUser: userId={} is offline — skipping event={}", userId, event)
-        );
+        Collection<SocketSession> sessions = sessionManager.findAllByUserId(userId);
+        if (sessions.isEmpty()) {
+            log.debug("sendToUser: userId={} has no live session — skipping event={}", userId, event);
+            return;
+        }
+        for (SocketSession session : sessions) {
+            sendToSession(session.getSessionId(), event, payload);
+        }
     }
 
     /** Push event to a specific session by sessionId. */
     public void sendToSession(String sessionId, String event, Object payload) {
+        if (sessionId == null) {
+            log.debug("sendToSession: null sessionId — skipping event={}", event);
+            return;
+        }
         try {
             SocketIOClient client = server.getClient(UUID.fromString(sessionId));
             if (client != null && client.isChannelOpen()) {
