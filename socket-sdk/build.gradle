@@ -1,0 +1,40 @@
+plugins {
+    id 'tutem.java-library-conventions'
+}
+
+dependencies {
+    // Socket.IO transport. `api` because consumer-facing handler signatures and
+    // extension points expose SocketIOClient / AckRequest / HandshakeData.
+    api libs.netty.socketio
+
+    // `api` because the consumer-facing event types (SocketClientConnectedEvent and friends)
+    // extend org.springframework.context.ApplicationEvent, so anyone writing an
+    // @EventListener for them compiles against spring-context.
+    api libs.spring.context
+
+    // `api` because JsonSocketMessageSerializer(ObjectMapper) is a public constructor a
+    // consumer calls to supply its own ObjectMapper.
+    api libs.jackson.databind
+
+    // Internal only: the auto-configuration itself. A consumer never references it.
+    implementation libs.spring.boot.autoconfigure
+    implementation libs.slf4j.api
+
+    // Optional integrations: guarded by @ConditionalOnClass, never forced on consumers.
+    compileOnly libs.spring.boot.starter.actuator
+    compileOnly libs.micrometer.tracing
+
+    annotationProcessor libs.spring.boot.configuration.processor
+
+    //lombok
+    compileOnly libs.lombok
+    annotationProcessor libs.lombok
+
+    //test
+    testImplementation libs.spring.boot.starter.test
+    testImplementation libs.spring.boot.starter.actuator
+    testImplementation libs.micrometer.tracing
+    testRuntimeOnly libs.junit.platform.launcher
+    testCompileOnly libs.lombok
+    testAnnotationProcessor libs.lombok
+}

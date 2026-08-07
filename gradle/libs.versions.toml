@@ -1,0 +1,32 @@
+# Single source of truth for third-party versions.
+#
+# Most libraries below deliberately carry no version: the Spring Boot BOM (applied to every
+# module by the `tutem.java-library-conventions` plugin) manages Spring, Jackson, Kafka,
+# Micrometer, Lombok and JUnit. Bumping `springBoot` therefore moves the whole ecosystem
+# forward coherently, which is what stops the two SDKs drifting apart.
+#
+# Only genuinely un-managed dependencies pin a version here.
+
+[versions]
+springBoot = "3.5.4"
+nettySocketio = "2.0.12"
+
+[libraries]
+spring-boot-bom = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "springBoot" }
+
+spring-boot-autoconfigure = { module = "org.springframework.boot:spring-boot-autoconfigure" }
+spring-boot-configuration-processor = { module = "org.springframework.boot:spring-boot-configuration-processor" }
+spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator" }
+spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
+spring-context = { module = "org.springframework:spring-context" }
+spring-kafka = { module = "org.springframework.kafka:spring-kafka" }
+spring-kafka-test = { module = "org.springframework.kafka:spring-kafka-test" }
+
+jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind" }
+micrometer-tracing = { module = "io.micrometer:micrometer-tracing" }
+slf4j-api = { module = "org.slf4j:slf4j-api" }
+lombok = { module = "org.projectlombok:lombok" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+
+# Not covered by the Spring Boot BOM.
+netty-socketio = { module = "com.corundumstudio.socketio:netty-socketio", version.ref = "nettySocketio" }

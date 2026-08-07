@@ -1,0 +1,65 @@
+// Shared build conventions for every published library in this repo.
+//
+// Modules apply this instead of repeating plugins, coordinates, toolchain, encoding,
+// publishing and the Spring Boot BOM. Module build files should then contain nothing but
+// their own dependencies.
+
+plugins {
+    // `java-library` already applies the `java` plugin.
+    id 'java-library'
+    id 'maven-publish'
+}
+
+group = 'com.tutem.platform'
+version = '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+    // Consumers debugging through SDK internals should see the source, not decompiled bytecode.
+    withSourcesJar()
+}
+
+// Apply the Spring Boot BOM so Spring, Jackson, Kafka, Micrometer, Lombok and JUnit
+// versions come from one place. Declared across every entry-point configuration because a
+// platform only constrains the graph it is part of - `annotationProcessor` and the test
+// compile paths resolve separately from `api`/`implementation`.
+def libs = extensions.getByType(VersionCatalogsExtension).named('libs')
+def springBootBom = libs.findLibrary('spring-boot-bom').get()
+
+dependencies {
+    ['api',
+     'compileOnly',
+     'annotationProcessor',
+     'testImplementation',
+     'testCompileOnly',
+     'testAnnotationProcessor'].each { configurationName ->
+        add(configurationName, platform(springBootBom))
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+// Publishes com.tutem.platform:<module>:1.0-SNAPSHOT (group/version are set above).
+// `publishToMavenLocal` is enough for another repo on this machine to consume an SDK.
+publishing {
+    publications {
+        maven(MavenPublication) {
+            from components.java
+        }
+    }
+    // TODO: no remote repository has been chosen yet (GitHub Packages / Nexus / Artifactory /
+    //  CodeArtifact). Add a `repositories { maven { url = ...; credentials {...} } }` block here
+    //  once that decision is made; until then only publishToMavenLocal works.
+}

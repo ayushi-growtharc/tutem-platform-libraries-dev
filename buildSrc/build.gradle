@@ -1,0 +1,8 @@
+plugins {
+    // Lets `src/main/groovy/*.gradle` files become plugins the modules can apply by id.
+    id 'groovy-gradle-plugin'
+}
+
+repositories {
+    mavenCentral()
+}

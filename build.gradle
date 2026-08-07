@@ -1,0 +1,6 @@
+// The root project is an aggregator only - it has no sources and publishes nothing.
+//
+// Shared configuration lives in buildSrc/src/main/groovy/tutem.java-library-conventions.gradle,
+// which each module applies. Please don't add plugins or dependencies here: anything declared
+// on the root project applies to the root project alone and silently does nothing for the
+// modules, which is exactly the trap the previous version of this file fell into.
