@@ -1,0 +1,22 @@
+plugins {
+    id 'tutem.java-library-conventions'
+}
+
+dependencies {
+    // `api` because KafkaEventProducer's public constructor takes a KafkaTemplate, so a
+    // consumer wiring one by hand compiles against spring-kafka.
+    api libs.spring.kafka
+
+    // `api` because JacksonEventSerializer(ObjectMapper) is a public constructor a consumer
+    // calls to supply its own ObjectMapper.
+    api libs.jackson.databind
+
+    // Internal only: the auto-configuration itself. A consumer never references it.
+    implementation libs.spring.boot.autoconfigure
+    implementation libs.slf4j.api
+
+    //test
+    testImplementation libs.spring.boot.starter.test
+    testImplementation libs.spring.kafka.test
+    testRuntimeOnly libs.junit.platform.launcher
+}
