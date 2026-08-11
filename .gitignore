@@ -39,5 +39,10 @@ bin/
 ### VS Code ###
 .vscode/
 
+### Claude Code ###
+# .claude/settings.json IS committed - it carries the team's shared permission rules.
+# Only personal, machine-specific overrides are ignored.
+.claude/settings.local.json
+
 ### Mac OS ###
 .DS_Store
