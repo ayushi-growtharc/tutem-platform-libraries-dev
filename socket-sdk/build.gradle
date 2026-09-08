@@ -20,6 +20,14 @@ dependencies {
     implementation libs.spring.boot.autoconfigure
     implementation libs.slf4j.api
 
+    // Registered into netty-socketio's own JsonSupport (see SocketAutoConfiguration's
+    // socketJsonSupport bean) - java.time.* fields (Instant, in every push DTO a consumer is
+    // likely to define) are unreadable/unwritable on the wire without this. `implementation`,
+    // not `api`: a consumer only needs this on its own classpath if it registers additional
+    // modules of its own into a replacement JsonSupport bean, which is an override case, not the
+    // default path.
+    implementation libs.jackson.datatype.jsr310
+
     // Optional integrations: guarded by @ConditionalOnClass, never forced on consumers.
     compileOnly libs.spring.boot.starter.actuator
     compileOnly libs.micrometer.tracing

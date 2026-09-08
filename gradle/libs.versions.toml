@@ -23,6 +23,7 @@ spring-kafka = { module = "org.springframework.kafka:spring-kafka" }
 spring-kafka-test = { module = "org.springframework.kafka:spring-kafka-test" }
 
 jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind" }
+jackson-datatype-jsr310 = { module = "com.fasterxml.jackson.datatype:jackson-datatype-jsr310" }
 micrometer-tracing = { module = "io.micrometer:micrometer-tracing" }
 slf4j-api = { module = "org.slf4j:slf4j-api" }
 lombok = { module = "org.projectlombok:lombok" }
