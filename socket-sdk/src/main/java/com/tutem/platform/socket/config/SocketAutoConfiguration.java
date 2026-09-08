@@ -3,7 +3,12 @@ package com.tutem.platform.socket.config;
 import com.corundumstudio.socketio.Configuration;
 import com.corundumstudio.socketio.SocketIOServer;
 import com.corundumstudio.socketio.Transport;
+import com.corundumstudio.socketio.protocol.JacksonJsonSupport;
+import com.corundumstudio.socketio.protocol.JsonSupport;
+import com.fasterxml.jackson.databind.Module;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.tutem.platform.socket.authentication.DefaultSocketAuthenticationHook;
 import com.tutem.platform.socket.authentication.SocketAuthenticationHook;
 import com.tutem.platform.socket.connection.ConnectionManager;
@@ -97,9 +102,61 @@ public class SocketAutoConfiguration {
 
     // ---- Server ------------------------------------------------------------
 
+    /**
+     * netty-socketio's own wire (de)serializer - <strong>not</strong> the same thing as
+     * {@link #socketMessageSerializer}, and this is the bean most consumers will not realize they
+     * need until a push silently fails.
+     *
+     * <p>{@code MessageDispatcher}/{@code DefaultSocketErrorHandler} hand payload objects straight
+     * to netty-socketio's {@code SocketIOClient#sendEvent}/room/broadcast methods, which serialize
+     * with <em>this</em> {@code JsonSupport} - never with the Spring {@code ObjectMapper} bean that
+     * {@link #socketMessageSerializer} wraps. Leaving {@link Configuration#setJsonSupport} unset
+     * defaults to a {@code JacksonJsonSupport} built around its own private, unconfigured
+     * {@code ObjectMapper}, which has no {@code java.time} support at all - so any push DTO with an
+     * {@code Instant}/{@code LocalDateTime} field (an offer's {@code expiresAt}, an event's
+     * {@code occurredAt}, ...) throws {@code InvalidDefinitionException} and is dropped, silently,
+     * from inside netty-socketio's own send path. Registering {@link JavaTimeModule} here is what
+     * closes that gap for every consumer, without requiring each one to discover and fix it
+     * separately.
+     */
     @Bean
     @ConditionalOnMissingBean
-    public SocketIOServer socketIOServer(SocketProperties props) {
+    public JsonSupport socketJsonSupport() {
+        return new IsoDateJacksonJsonSupport(new JavaTimeModule());
+    }
+
+    /**
+     * netty-socketio's {@link JacksonJsonSupport} with {@code java.time} values written as ISO-8601
+     * strings rather than epoch decimals.
+     *
+     * <p><strong>Registering {@code JavaTimeModule} is necessary but not sufficient, and the
+     * half-fix is worse than no fix.</strong> Without the module, an {@code Instant} on a push
+     * payload throws inside netty-socketio's send path and the frame is dropped - loudly, at least,
+     * in the sense that something appears in the log. With the module but nothing else, Jackson's
+     * {@code WRITE_DATES_AS_TIMESTAMPS} is still at its default {@code true}, so the same field is
+     * written as an epoch-seconds decimal such as {@code 1787547213.722813700}. That succeeds, logs
+     * nothing, and hands the client a number where the platform's REST APIs return
+     * {@code "2026-08-14T09:30:22Z"} for the very same field - so a client written against the REST
+     * shape breaks on the socket, with no error anywhere to point at.
+     *
+     * <p>The subclass exists only because {@code JacksonJsonSupport} creates its own
+     * {@code ObjectMapper} internally and exposes it as a {@code protected} field: there is no
+     * constructor or setter that accepts a configured mapper, so reaching the feature flag means
+     * extending the class. The library's own protocol serializers are registered by
+     * {@code init(ObjectMapper)} in the super constructor and are unaffected by this flag, which
+     * only governs date encoding.
+     */
+    private static final class IsoDateJacksonJsonSupport extends JacksonJsonSupport {
+
+        private IsoDateJacksonJsonSupport(Module... modules) {
+            super(modules);
+            objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        }
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public SocketIOServer socketIOServer(SocketProperties props, JsonSupport jsonSupport) {
         Configuration config = new Configuration();
         config.setHostname(props.getHost());
         config.setPort(props.getPort());
@@ -110,6 +167,7 @@ public class SocketAutoConfiguration {
         config.setPingTimeout(props.getPingTimeout());
         config.setPingInterval(props.getPingInterval());
         config.setTransports(resolveTransports(props.getTransports()));
+        config.setJsonSupport(jsonSupport);
 
         if (props.getOrigin() != null && !props.getOrigin().isBlank()) {
             config.setOrigin(props.getOrigin());
